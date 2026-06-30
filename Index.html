@@ -489,7 +489,6 @@
     <button class="mode-tab" id="tabBatch">Batch lookup</button>
   </div>
 
-  <!-- SINGLE MODE -->
   <div id="singleMode">
     <div class="search-card">
       <input id="ipInput" type="text" placeholder="8.8.8.8, an IPv6 address, or leave blank for your own IP" autocomplete="off" spellcheck="false">
@@ -541,7 +540,6 @@
     </div>
   </div>
 
-  <!-- BATCH MODE -->
   <div id="batchModeWrap" style="display:none;">
     <textarea id="batchInput" placeholder="One IP or hostname per line, up to 100&#10;8.8.8.8&#10;1.1.1.1&#10;9.9.9.9"></textarea>
     <div class="batch-actions">
@@ -569,7 +567,7 @@
   </div>
 
   <footer>
-    <span>Data via <a href="https://ip-api.com" target="_blank" rel="noopener">ip-api.com</a> — Monster</span>
+    <span>Data via <a href="https://ip-api.com" target="_blank" rel="noopener">ip-api.com</a> — free tier, 45 req/min</span>
     <span id="timestamp"></span>
   </footer>
 
@@ -611,6 +609,11 @@
     'proxy','hosting','query'
   ].join(',');
 
+  /**
+   * Generates a regional indicator flag emoji sequence from a two-letter country code.
+   * @param {string} countryCode Two letter code (e.g. 'US')
+   * @returns {string} The emoji character
+   */
   function flagEmoji(countryCode){
     if(!countryCode || countryCode.length !== 2) return '';
     const codePoints = [...countryCode.toUpperCase()].map(c => 127397 + c.charCodeAt());
@@ -672,8 +675,8 @@
   async function runLookup(){
     const raw = ipInput.value.trim();
     const endpoint = raw
-      ? `http://ip-api.com/json/${encodeURIComponent(raw)}?fields=${FIELDS}`
-      : `http://ip-api.com/json/?fields=${FIELDS}`;
+      ? `https://ip-api.com/json/${encodeURIComponent(raw)}?fields=${FIELDS}`
+      : `https://ip-api.com/json/?fields=${FIELDS}`;
 
     lookupBtn.disabled = true;
     results.classList.remove('show');
@@ -800,7 +803,7 @@
     const payload = lines.map(q => ({ query: q, fields: FIELDS }));
 
     try{
-      const res = await fetch('http://ip-api.com/batch', {
+      const res = await fetch('https://ip-api.com/batch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
