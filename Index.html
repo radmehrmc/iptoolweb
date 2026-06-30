@@ -477,9 +477,9 @@
 
   <header>
     <div>
-      <div class="eyebrow"><span class="dot"></span>IP-API.COM · LIVE LOOKUP</div>
+      <div class="eyebrow"><span class="dot"></span>IPWHO.IS · LIVE LOOKUP</div>
       <h1>Trace an <em>ip address</em>.</h1>
-      <p class="sub">Expose the physical location, ISP, and connection type behind any IP.</p>
+      <p class="sub">Expose the physical location, ISP, and connection type behind any IP securely over HTTPS.</p>
     </div>
     <button class="theme-toggle" id="themeToggle" title="Toggle dark mode">🌙</button>
   </header>
@@ -515,7 +515,7 @@
             <div class="hero-ip" id="rIp">—</div>
             <button class="copy-btn" id="copyIpBtn" title="Copy IP">⧉</button>
           </div>
-          <span class="badge" id="rRdns" title="Reverse DNS"></span>
+          <span class="badge" id="rDomain" title="Domain associated with this network"></span>
         </div>
         <div class="hero-loc">
           <span class="flag" id="rFlag"></span>
@@ -541,14 +541,14 @@
   </div>
 
   <div id="batchModeWrap" style="display:none;">
-    <textarea id="batchInput" placeholder="One IP or hostname per line, up to 100&#10;8.8.8.8&#10;1.1.1.1&#10;9.9.9.9"></textarea>
+    <textarea id="batchInput" placeholder="One IP or hostname per line, up to 25&#10;8.8.8.8&#10;1.1.1.1&#10;9.9.9.9"></textarea>
     <div class="batch-actions">
       <button class="btn btn-primary" id="batchBtn">Locate all →</button>
       <button class="chip" id="batchSampleBtn">Load sample list</button>
     </div>
     <div class="status-line" id="batchStatusLine">
       <span class="spinner" id="batchSpinner"></span>
-      <span id="batchStatusText">Paste up to 100 addresses, one per line.</span>
+      <span id="batchStatusText">Paste addresses, one per line. Loaded profiles resolve asynchronously.</span>
     </div>
 
     <div id="batchResults">
@@ -557,7 +557,7 @@
         <table class="batch-table">
           <thead>
             <tr>
-              <th>Query</th><th>Country</th><th>City</th><th>ISP</th><th>ASN</th><th>Mobile</th><th>Proxy</th><th>Hosting</th>
+              <th>Query</th><th>Country</th><th>City</th><th>ISP</th><th>ASN</th><th>Proxy</th><th>VPN</th><th>Hosting</th>
             </tr>
           </thead>
           <tbody id="batchTbody"></tbody>
@@ -567,7 +567,7 @@
   </div>
 
   <footer>
-    <span>Data via <a href="https://ip-api.com" target="_blank" rel="noopener">ip-api.com</a> — free tier, 45 req/min</span>
+    <span>Data securely processed via <a href="https://ipwho.is" target="_blank" rel="noopener">ipwho.is</a></span>
     <span id="timestamp"></span>
   </footer>
 
@@ -601,18 +601,8 @@
     batchModeWrap.style.display = 'block'; singleMode.style.display = 'none';
   });
 
-  /* ---------- Shared ---------- */
-  const FIELDS = [
-    'status','message','continent','continentCode','country','countryCode',
-    'region','regionName','city','district','zip','lat','lon','timezone',
-    'offset','currency','isp','org','as','asname','reverse','mobile',
-    'proxy','hosting','query'
-  ].join(',');
-
   /**
    * Generates a regional indicator flag emoji sequence from a two-letter country code.
-   * @param {string} countryCode Two letter code (e.g. 'US')
-   * @returns {string} The emoji character
    */
   function flagEmoji(countryCode){
     if(!countryCode || countryCode.length !== 2) return '';
@@ -674,54 +664,53 @@
 
   async function runLookup(){
     const raw = ipInput.value.trim();
-    const endpoint = raw
-      ? `https://ip-api.com/json/${encodeURIComponent(raw)}?fields=${FIELDS}`
-      : `https://ip-api.com/json/?fields=${FIELDS}`;
+    const endpoint = raw ? `https://ipwho.is/${encodeURIComponent(raw)}` : `https://ipwho.is/`;
 
     lookupBtn.disabled = true;
     results.classList.remove('show');
-    setStatus('Resolving address…', false, true);
+    setStatus('Resolving address safely over HTTPS…', false, true);
 
     try{
       const res = await fetch(endpoint);
-      if(!res.ok) throw new Error(`HTTP ${res.status}`);
+      if(!res.ok) throw new Error(`HTTP Error ${res.status}`);
       const data = await res.json();
-      if(data.status !== 'success') throw new Error(data.message || 'Lookup failed — check the address and try again.');
+      if(!data.success) throw new Error(data.message || 'Lookup failed — check the address and try again.');
       render(data);
-      setStatus(`Resolved ${data.query} successfully.`, false, false);
+      setStatus(`Resolved ${data.ip} successfully.`, false, false);
     }catch(err){
-      const msg = (err.message === 'Failed to fetch')
-        ? 'Blocked by the browser — this page must be opened over http:// (a plain local file works) because ip-api.com\'s free tier has no SSL.'
-        : (err.message || 'Something went wrong reaching ip-api.com.');
-      setStatus(msg, true, false);
+      setStatus(err.message || 'Something went wrong reaching the lookup service.', true, false);
     }finally{
       lookupBtn.disabled = false;
     }
   }
 
   function render(d){
-    document.getElementById('rIp').textContent = d.query || '—';
-    document.getElementById('rFlag').textContent = flagEmoji(d.countryCode);
-    document.getElementById('rCity').textContent = [d.city, d.regionName, d.country].filter(Boolean).join(', ') || 'Unknown location';
-    document.getElementById('rCoords').textContent = (d.lat!=null && d.lon!=null) ? `${d.lat.toFixed(4)}, ${d.lon.toFixed(4)}` : '';
+    document.getElementById('rIp').textContent = d.ip || '—';
+    document.getElementById('rFlag').textContent = flagEmoji(d.country_code);
+    document.getElementById('rCity').textContent = [d.city, d.region, d.country].filter(Boolean).join(', ') || 'Unknown location';
+    document.getElementById('rCoords').textContent = (d.latitude!=null && d.longitude!=null) ? `${d.latitude.toFixed(4)}, ${d.longitude.toFixed(4)}` : '';
 
-    const rdns = document.getElementById('rRdns');
-    if(d.reverse){ rdns.textContent = d.reverse; rdns.style.display = 'inline-block'; }
-    else{ rdns.style.display = 'none'; }
+    const rDomain = document.getElementById('rDomain');
+    const conn = d.connection || {};
+    const sec = d.security || {};
+    const tz = d.timezone || {};
+
+    if(conn.domain){ rDomain.textContent = conn.domain; rDomain.style.display = 'inline-block'; }
+    else{ rDomain.style.display = 'none'; }
 
     const badges = [];
-    badges.push(`<span class="badge ${d.mobile ? 'flag-bad':'flag-good'}">${d.mobile ? 'Mobile network' : 'Fixed network'}</span>`);
-    badges.push(`<span class="badge ${d.proxy ? 'flag-bad':'flag-good'}">${d.proxy ? 'Proxy / VPN detected' : 'No proxy detected'}</span>`);
-    badges.push(`<span class="badge ${d.hosting ? 'flag-bad':'flag-good'}">${d.hosting ? 'Hosting / datacenter' : 'Residential / ISP'}</span>`);
+    badges.push(`<span class="badge ${sec.proxy ? 'flag-bad':'flag-good'}">${sec.proxy ? 'Proxy active' : 'Clean Connection'}</span>`);
+    badges.push(`<span class="badge ${sec.vpn ? 'flag-bad':'flag-good'}">${sec.vpn ? 'VPN active' : 'No VPN'}</span>`);
+    badges.push(`<span class="badge ${sec.hosting ? 'flag-bad':'flag-good'}">${sec.hosting ? 'Datacenter / Cloud' : 'Residential / Business'}</span>`);
     document.getElementById('rBadges').innerHTML = badges.join('');
 
     const mapFrame = document.getElementById('mapFrame');
     const mapLink = document.getElementById('mapLink');
-    if(d.lat != null && d.lon != null){
+    if(d.latitude != null && d.longitude != null){
       const d2 = 0.08;
-      const bbox = `${d.lon-d2},${d.lat-d2},${d.lon+d2},${d.lat+d2}`;
-      document.getElementById('mapIframe').src = `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${d.lat},${d.lon}`;
-      mapLink.href = `https://www.openstreetmap.org/?mlat=${d.lat}&mlon=${d.lon}#map=11/${d.lat}/${d.lon}`;
+      const bbox = `${d.longitude-d2},${d.latitude-d2},${d.longitude+d2},${d.latitude+d2}`;
+      document.getElementById('mapIframe').src = `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${d.latitude},${d.longitude}`;
+      mapLink.href = `https://www.openstreetmap.org/?mlat=${d.latitude}&mlon=${d.longitude}#map=11/${d.latitude}/${d.longitude}`;
       mapFrame.style.display = 'block';
       mapLink.style.display = 'inline-block';
     } else {
@@ -732,37 +721,37 @@
     const gridLocation = document.getElementById('gridLocation');
     gridLocation.innerHTML = [
       field('Continent', d.continent, !d.continent),
-      field('Continent code', d.continentCode, !d.continentCode),
+      field('Continent code', d.continent_code, !d.continent_code),
       field('Country', d.country, !d.country),
-      field('Country code', d.countryCode, !d.countryCode),
-      field('Region', d.regionName ? `${d.regionName} (${d.region})` : null, !d.regionName),
+      field('Country code', d.country_code, !d.country_code),
+      field('Region', d.region, !d.region),
       field('City', d.city, !d.city),
-      field('District', d.district, !d.district),
-      field('Postal / ZIP', d.zip, !d.zip),
-      field('Latitude', d.lat, d.lat==null),
-      field('Longitude', d.lon, d.lon==null),
-      field('Timezone', d.timezone, !d.timezone),
-      field('UTC offset', d.offset!=null ? `${d.offset>=0?'+':''}${d.offset/3600}h` : null, d.offset==null),
-      field('Currency', d.currency, !d.currency),
+      field('Postal / ZIP', d.postal, !d.postal),
+      field('Latitude', d.latitude, d.latitude==null),
+      field('Longitude', d.longitude, d.longitude==null),
+      field('Timezone', tz.id, !tz.id),
+      field('UTC offset', tz.utc, !tz.utc),
+      field('Local Time', tz.current_time ? new Date(tz.current_time).toLocaleTimeString() : null, !tz.current_time)
     ].join('');
     wireFieldCopy(gridLocation);
 
     const gridNetwork = document.getElementById('gridNetwork');
     gridNetwork.innerHTML = [
-      field('ISP', d.isp, !d.isp),
-      field('Organization', d.org, !d.org),
-      field('ASN', d.as, !d.as),
-      field('AS name', d.asname, !d.asname),
-      field('Reverse DNS', d.reverse, !d.reverse),
-      field('Queried address', d.query, !d.query),
+      field('ISP', conn.isp, !conn.isp),
+      field('Organization', conn.org, !conn.org),
+      field('ASN', conn.asn ? `AS${conn.asn}` : null, !conn.asn),
+      field('Associated Domain', conn.domain, !conn.domain),
+      field('IP Architecture', d.type, !d.type),
+      field('Queried address', d.ip, !d.ip),
     ].join('');
     wireFieldCopy(gridNetwork);
 
     const gridFlags = document.getElementById('gridFlags');
     gridFlags.innerHTML = [
-      field('Mobile connection', d.mobile ? 'Yes' : 'No'),
-      field('Proxy / VPN / Tor', d.proxy ? 'Yes' : 'No'),
-      field('Hosting / datacenter', d.hosting ? 'Yes' : 'No'),
+      field('Proxy Network', sec.proxy ? 'Yes' : 'No'),
+      field('VPN Tunnel', sec.vpn ? 'Yes' : 'No'),
+      field('Tor Exit Node', sec.tor ? 'Yes' : 'No'),
+      field('Hosting / Infrastructure', sec.hosting ? 'Yes' : 'No')
     ].join('');
     wireFieldCopy(gridFlags);
 
@@ -770,7 +759,7 @@
     results.classList.add('show');
   }
 
-  /* ---------- BATCH LOOKUP ---------- */
+  /* ---------- BATCH LOOKUP (Asynchronous Queue) ---------- */
   const batchInput = document.getElementById('batchInput');
   const batchBtn = document.getElementById('batchBtn');
   const batchSampleBtn = document.getElementById('batchSampleBtn');
@@ -793,56 +782,60 @@
   batchBtn.addEventListener('click', runBatch);
 
   async function runBatch(){
-    const lines = batchInput.value.split('\n').map(l=>l.trim()).filter(Boolean).slice(0,100);
+    const lines = batchInput.value.split('\n').map(l=>l.trim()).filter(Boolean).slice(0,25);
     if(lines.length === 0){ setBatchStatus('Add at least one IP address or hostname.', true, false); return; }
 
     batchBtn.disabled = true;
     batchResults.classList.remove('show');
-    setBatchStatus(`Resolving ${lines.length} address${lines.length>1?'es':''}…`, false, true);
-
-    const payload = lines.map(q => ({ query: q, fields: FIELDS }));
+    setBatchStatus(`Resolving ${lines.length} configurations concurrently over HTTPS…`, false, true);
 
     try{
-      const res = await fetch('https://ip-api.com/batch', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+      const promises = lines.map(async (ip) => {
+        try {
+          const res = await fetch(`https://ipwho.is/${encodeURIComponent(ip)}`);
+          if (!res.ok) return { query: ip, success: false, message: `HTTP ${res.status}` };
+          const data = await res.json();
+          data.query = ip; 
+          return data;
+        } catch (e) {
+          return { query: ip, success: false, message: 'Network connection aborted' };
+        }
       });
-      if(!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      renderBatch(data);
-      const failCount = data.filter(d=>d.status!=='success').length;
-      setBatchStatus(`Done — ${data.length - failCount} succeeded, ${failCount} failed.`, failCount>0, false);
-    }catch(err){
-      const msg = (err.message === 'Failed to fetch')
-        ? 'Blocked by the browser — open this file locally (file://) since ip-api.com\'s free tier has no SSL.'
-        : (err.message || 'Something went wrong reaching ip-api.com.');
-      setBatchStatus(msg, true, false);
-    }finally{
+
+      const processedData = await Promise.all(promises);
+      renderBatch(processedData);
+      
+      const failCount = processedData.filter(d => !d.success).length;
+      setBatchStatus(`Done — ${processedData.length - failCount} succeeded, ${failCount} failed.`, failCount > 0, false);
+    } catch(err) {
+      setBatchStatus('Processing pipeline hit an error.', true, false);
+    } finally {
       batchBtn.disabled = false;
     }
   }
 
   function renderBatch(data){
     batchTbody.innerHTML = data.map(d=>{
-      if(d.status !== 'success'){
-        return `<tr class="row-fail"><td>${d.query||'—'}</td><td colspan="7">${d.message||'lookup failed'}</td></tr>`;
+      if(!d.success){
+        return `<tr class="row-fail"><td>${d.query||'—'}</td><td colspan="7">${d.message||'Lookup failed'}</td></tr>`;
       }
+      const conn = d.connection || {};
+      const sec = d.security || {};
       return `<tr>
-        <td>${d.query}</td>
-        <td>${flagEmoji(d.countryCode)} ${d.country||'—'}</td>
+        <td><strong>${d.ip}</strong></td>
+        <td>${flagEmoji(d.country_code)} ${d.country||'—'}</td>
         <td>${d.city||'—'}</td>
-        <td>${d.isp||'—'}</td>
-        <td>${d.as||'—'}</td>
-        <td><span class="pill ${d.mobile?'bad':'good'}">${d.mobile?'yes':'no'}</span></td>
-        <td><span class="pill ${d.proxy?'bad':'good'}">${d.proxy?'yes':'no'}</span></td>
-        <td><span class="pill ${d.hosting?'bad':'good'}">${d.hosting?'yes':'no'}</span></td>
+        <td>${conn.isp||'—'}</td>
+        <td>${conn.asn ? 'AS'+conn.asn : '—'}</td>
+        <td><span class="pill ${sec.proxy?'bad':'good'}">${sec.proxy?'yes':'no'}</span></td>
+        <td><span class="pill ${sec.vpn?'bad':'good'}">${sec.vpn?'yes':'no'}</span></td>
+        <td><span class="pill ${sec.hosting?'bad':'good'}">${sec.hosting?'yes':'no'}</span></td>
       </tr>`;
     }).join('');
     batchResults.classList.add('show');
   }
 
-  // Auto-run single lookup for the visitor's own IP on load
+  // Self-execute current client profile details on initiation
   runLookup();
 </script>
 
