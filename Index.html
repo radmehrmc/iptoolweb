@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Locate — IP Intelligence Lookup</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+  :root{
+    --bg:#fbfaf8;
+    --surface:#ffffff;
+    --ink:#15181c;
+    --ink-soft:#5b6168;
+    --line:#e6e3dd;
+    --accent:#1f5e4d;
+    --accent-soft:#e8f1ee;
+    --accent-bright:#2f8f73;
+    --warn:#a3401f;
+    --hero-bg:#15181c;
+    --hero-ink:#ffffff;
+    --radius:14px;
+    --mono: 'IBM Plex Mono', monospace;
+    --display: 'Fraunces', serif;
+    --sans: 'Inter', sans-serif;
+  }
+
+  html[data-theme="dark"]{
+    --bg:#0e1012;
+    --surface:#17191c;
+    --ink:#f1efe9;
+    --ink-soft:#9aa0a6;
+    --line:#2a2d31;
+    --accent:#4cb999;
+    --accent-soft:#173329;
+    --accent-bright:#5fd6ab;
+    --warn:#e2825c;
+    --hero-bg:#000000;
+    --hero-ink:#ffffff;
+  }
+
+  *{box-sizing:border-box; margin:0; padding:0;}
+
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:var(--sans);
+    -webkit-font-smoothing:antialiased;
+    min-height:100vh;
+    transition: background .25s ease, color .25s ease;
+  }
+
+  body::before{
+    content:"";
+    position:fixed; inset:0;
+    background-image:
+      linear-gradient(var(--line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size:64px 64px;
+    opacity:.35;
+    pointer-events:none;
+    mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black, transparent 75%);
+  }
+
+  .wrap{
+    max-width:960px;
+    margin:0 auto;
+    padding:72px 24px 100px;
+    position:relative;
+  }
+
+  header{
+    margin-bottom:48px;
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:24px;
+  }
+
+  .eyebrow{
+    font-family:var(--mono);
+    font-size:12px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--accent);
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-bottom:18px;
+  }
+  .eyebrow .dot{
+    width:7px;height:7px;border-radius:50%;
+    background:var(--accent-bright);
+    box-shadow:0 0 0 3px var(--accent-soft);
+  }
+
+  h1{
+    font-family:var(--display);
+    font-weight:600;
+    font-size:clamp(34px, 5vw, 50px);
+    line-height:1.08;
+    letter-spacing:-0.01em;
+    color:var(--ink);
+    max-width:14ch;
+  }
+  h1 em{ font-style:italic; color:var(--accent); }
+
+  .sub{
+    margin-top:16px;
+    color:var(--ink-soft);
+    font-size:16px;
+    line-height:1.6;
+    max-width:46ch;
+  }
+
+  .theme-toggle{
+    flex-shrink:0;
+    width:42px; height:42px;
+    border-radius:50%;
+    border:1px solid var(--line);
+    background:var(--surface);
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:17px;
+    transition: border-color .15s ease, transform .15s ease;
+  }
+  .theme-toggle:hover{ border-color:var(--accent); transform: rotate(15deg); }
+
+  /* Mode tabs */
+  .mode-tabs{
+    display:inline-flex;
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:100px;
+    padding:4px;
+    margin-bottom:18px;
+    gap:2px;
+  }
+  .mode-tab{
+    border:none;
+    background:transparent;
+    font-family:var(--sans);
+    font-weight:600;
+    font-size:13px;
+    color:var(--ink-soft);
+    padding:9px 18px;
+    border-radius:100px;
+    cursor:pointer;
+    transition: all .15s ease;
+  }
+  .mode-tab.active{
+    background:var(--ink);
+    color:var(--bg);
+  }
+
+  /* Search */
+  .search-card{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:8px;
+    display:flex;
+    gap:8px;
+    box-shadow:0 1px 2px rgba(20,20,15,.03), 0 12px 32px -16px rgba(20,20,15,.08);
+  }
+
+  #ipInput{
+    flex:1;
+    border:none;
+    outline:none;
+    background:transparent;
+    padding:14px 16px;
+    font-family:var(--mono);
+    font-size:15px;
+    color:var(--ink);
+  }
+
+  #batchInput{
+    width:100%;
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    background:var(--surface);
+    outline:none;
+    padding:16px;
+    font-family:var(--mono);
+    font-size:14px;
+    color:var(--ink);
+    resize:vertical;
+    min-height:120px;
+    line-height:1.6;
+  }
+  #batchInput:focus{ border-color:var(--accent); }
+
+  .btn{
+    border:none;
+    cursor:pointer;
+    font-family:var(--sans);
+    font-weight:600;
+    font-size:14px;
+    border-radius:9px;
+    padding:0 22px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    transition: transform .15s ease, background .15s ease, box-shadow .15s ease;
+  }
+  .btn-primary{ background:var(--ink); color:var(--bg); }
+  .btn-primary:hover{ background:var(--accent); color:#fff; }
+  .btn-primary:active{ transform: scale(.97); }
+  .btn-primary:disabled{ opacity:.55; cursor:wait; }
+
+  .quick-row{
+    margin-top:14px;
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    align-items:center;
+  }
+  .quick-row span{ font-family:var(--mono); font-size:12px; color:var(--ink-soft); }
+  .chip{
+    font-family:var(--mono);
+    font-size:12.5px;
+    padding:6px 12px;
+    border-radius:100px;
+    border:1px solid var(--line);
+    background:var(--surface);
+    color:var(--ink-soft);
+    cursor:pointer;
+    transition: all .15s ease;
+  }
+  .chip:hover{ border-color:var(--accent); color:var(--accent); background:var(--accent-soft); }
+
+  .batch-actions{ margin-top:12px; display:flex; gap:10px; }
+
+  /* Status line */
+  .status-line{
+    margin-top:18px;
+    font-family:var(--mono);
+    font-size:13px;
+    color:var(--ink-soft);
+    min-height:18px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .status-line.err{ color:var(--warn); }
+  .spinner{
+    width:13px;height:13px;
+    border-radius:50%;
+    border:2px solid var(--line);
+    border-top-color:var(--accent);
+    animation: spin .7s linear infinite;
+    display:none;
+  }
+  .spinner.show{ display:inline-block; }
+  @keyframes spin{ to{ transform:rotate(360deg);} }
+
+  /* Results */
+  #results, #batchResults{ margin-top:44px; display:none; }
+  #results.show, #batchResults.show{
+    display:block;
+    animation: rise .5s cubic-bezier(.2,.7,.3,1) both;
+  }
+  @keyframes rise{ from{ opacity:0; transform: translateY(14px); } to{ opacity:1; transform:none; } }
+
+  .hero-result{
+    background:var(--hero-bg);
+    color:var(--hero-ink);
+    border-radius:var(--radius);
+    padding:32px 32px 28px;
+    position:relative;
+    overflow:hidden;
+    margin-bottom:28px;
+  }
+  .hero-result::after{
+    content:"";
+    position:absolute; right:-60px; top:-60px;
+    width:220px;height:220px;
+    border:1px solid rgba(255,255,255,.08);
+    border-radius:50%;
+  }
+  .hero-result::before{
+    content:"";
+    position:absolute; right:-10px; top:-10px;
+    width:130px;height:130px;
+    border:1px solid rgba(255,255,255,.1);
+    border-radius:50%;
+  }
+
+  .hero-top{ display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap; }
+  .hero-ip-row{ display:flex; align-items:center; gap:10px; }
+  .hero-ip{ font-family:var(--mono); font-size:clamp(24px,4vw,32px); letter-spacing:-0.01em; }
+
+  .copy-btn{
+    border:1px solid rgba(255,255,255,.18);
+    background:rgba(255,255,255,.05);
+    color:rgba(255,255,255,.7);
+    width:28px; height:28px;
+    border-radius:7px;
+    cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    font-size:13px;
+    flex-shrink:0;
+    transition: all .15s ease;
+  }
+  .copy-btn:hover{ background:rgba(255,255,255,.12); color:#fff; }
+  .copy-btn.copied{ color:var(--accent-bright); border-color:var(--accent-bright); }
+
+  .badge{
+    font-family:var(--mono);
+    font-size:11px;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    padding:5px 10px;
+    border-radius:100px;
+    border:1px solid rgba(255,255,255,.18);
+    color:rgba(255,255,255,.85);
+  }
+  .badge.flag-good{ border-color:rgba(47,143,115,.5); background:rgba(47,143,115,.18); color:#9fe0c8; }
+  .badge.flag-bad{ border-color:rgba(163,64,31,.5); background:rgba(163,64,31,.18); color:#f0b69e; }
+
+  .hero-loc{
+    margin-top:14px;
+    font-family:var(--display);
+    font-size:clamp(22px,3.4vw,28px);
+    font-weight:500;
+    display:flex; align-items:baseline; gap:10px; flex-wrap:wrap;
+  }
+  .hero-loc .flag{ font-size:1.1em; }
+  .hero-loc .muted{ color:rgba(255,255,255,.5); font-family:var(--sans); font-size:14px; font-weight:400; }
+
+  .hero-badges{ margin-top:18px; display:flex; gap:8px; flex-wrap:wrap; }
+
+  /* Map */
+  .map-frame{
+    margin-top:24px;
+    border-radius:10px;
+    overflow:hidden;
+    border:1px solid rgba(255,255,255,.12);
+    height:260px;
+    background:#1d2024;
+  }
+  .map-frame iframe{ width:100%; height:100%; border:none; filter:saturate(.85); }
+  .map-link{
+    display:inline-block;
+    margin-top:10px;
+    font-family:var(--mono);
+    font-size:12px;
+    color:rgba(255,255,255,.55);
+    text-decoration:none;
+  }
+  .map-link:hover{ color:#fff; }
+
+  /* Data grid */
+  .section-label{
+    font-family:var(--mono);
+    font-size:11px;
+    letter-spacing:.12em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+    margin:30px 0 12px;
+    display:flex; align-items:center; gap:10px;
+  }
+  .section-label::after{ content:""; flex:1; height:1px; background:var(--line); }
+
+  .grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill, minmax(210px,1fr));
+    gap:1px;
+    background:var(--line);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    overflow:hidden;
+  }
+  .field{
+    background:var(--surface);
+    padding:16px 18px;
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:8px;
+  }
+  .field .k{
+    font-family:var(--mono);
+    font-size:10.5px;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+    margin-bottom:6px;
+  }
+  .field .v{
+    font-family:var(--mono);
+    font-size:14.5px;
+    color:var(--ink);
+    word-break:break-word;
+    line-height:1.4;
+  }
+  .field .v.empty{ color:#9499a0; }
+  .field-copy{
+    border:1px solid var(--line);
+    background:transparent;
+    color:var(--ink-soft);
+    width:24px; height:24px;
+    border-radius:6px;
+    cursor:pointer;
+    flex-shrink:0;
+    font-size:12px;
+    display:flex; align-items:center; justify-content:center;
+    transition: all .15s ease;
+  }
+  .field-copy:hover{ border-color:var(--accent); color:var(--accent); }
+  .field-copy.copied{ color:var(--accent-bright); border-color:var(--accent-bright); }
+
+  /* Batch table */
+  .batch-table-wrap{
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    overflow:auto;
+    background:var(--surface);
+  }
+  table.batch-table{ width:100%; border-collapse:collapse; font-family:var(--mono); font-size:13px; }
+  table.batch-table th{
+    text-align:left;
+    font-size:10.5px;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+    padding:12px 14px;
+    border-bottom:1px solid var(--line);
+    white-space:nowrap;
+  }
+  table.batch-table td{
+    padding:12px 14px;
+    border-bottom:1px solid var(--line);
+    white-space:nowrap;
+  }
+  table.batch-table tr:last-child td{ border-bottom:none; }
+  table.batch-table tr:hover td{ background:var(--accent-soft); }
+  .pill{
+    display:inline-block;
+    font-size:10.5px;
+    padding:3px 8px;
+    border-radius:100px;
+    border:1px solid var(--line);
+  }
+  .pill.bad{ color:var(--warn); border-color:var(--warn); }
+  .pill.good{ color:var(--accent); border-color:var(--accent); }
+  .row-fail td{ color:var(--warn); }
+
+  footer{
+    margin-top:60px;
+    padding-top:24px;
+    border-top:1px solid var(--line);
+    font-family:var(--mono);
+    font-size:12px;
+    color:var(--ink-soft);
+    display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px;
+  }
+  footer a{ color:var(--accent); text-decoration:none; }
+  footer a:hover{ text-decoration:underline; }
+
+  @media (max-width:560px){
+    .search-card{ flex-direction:column; }
+    .btn{ padding:14px; justify-content:center; }
+    .hero-result{ padding:24px 20px; }
+    header{ flex-direction:column; }
+  }
+
+  @media (prefers-reduced-motion: reduce){ *{ animation:none !important; transition:none !important; } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <header>
+    <div>
+      <div class="eyebrow"><span class="dot"></span>IP-API.COM · LIVE LOOKUP</div>
+      <h1>Trace an <em>ip address</em>.</h1>
+      <p class="sub">Expose the physical location, ISP, and connection type behind any IP.</p>
+    </div>
+    <button class="theme-toggle" id="themeToggle" title="Toggle dark mode">🌙</button>
+  </header>
+
+  <div class="mode-tabs">
+    <button class="mode-tab active" id="tabSingle">Single lookup</button>
+    <button class="mode-tab" id="tabBatch">Batch lookup</button>
+  </div>
+
+  <!-- SINGLE MODE -->
+  <div id="singleMode">
+    <div class="search-card">
+      <input id="ipInput" type="text" placeholder="8.8.8.8, an IPv6 address, or leave blank for your own IP" autocomplete="off" spellcheck="false">
+      <button class="btn btn-primary" id="lookupBtn">Locate →</button>
+    </div>
+
+    <div class="quick-row">
+      <span>try —</span>
+      <button class="chip" data-ip="">my IP</button>
+      <button class="chip" data-ip="8.8.8.8">8.8.8.8</button>
+      <button class="chip" data-ip="1.1.1.1">1.1.1.1</button>
+      <button class="chip" data-ip="2606:4700:4700::1111">IPv6</button>
+    </div>
+
+    <div class="status-line" id="statusLine">
+      <span class="spinner" id="spinner"></span>
+      <span id="statusText">Ready — enter an address or use a quick example above.</span>
+    </div>
+
+    <div id="results">
+      <div class="hero-result">
+        <div class="hero-top">
+          <div class="hero-ip-row">
+            <div class="hero-ip" id="rIp">—</div>
+            <button class="copy-btn" id="copyIpBtn" title="Copy IP">⧉</button>
+          </div>
+          <span class="badge" id="rRdns" title="Reverse DNS"></span>
+        </div>
+        <div class="hero-loc">
+          <span class="flag" id="rFlag"></span>
+          <span id="rCity">—</span>
+          <span class="muted" id="rCoords"></span>
+        </div>
+        <div class="hero-badges" id="rBadges"></div>
+        <div class="map-frame" id="mapFrame" style="display:none;">
+          <iframe id="mapIframe" loading="lazy"></iframe>
+        </div>
+        <a class="map-link" id="mapLink" href="#" target="_blank" rel="noopener" style="display:none;">Open larger map ↗</a>
+      </div>
+
+      <div class="section-label">Location</div>
+      <div class="grid" id="gridLocation"></div>
+
+      <div class="section-label">Network</div>
+      <div class="grid" id="gridNetwork"></div>
+
+      <div class="section-label">Connection profile</div>
+      <div class="grid" id="gridFlags"></div>
+    </div>
+  </div>
+
+  <!-- BATCH MODE -->
+  <div id="batchModeWrap" style="display:none;">
+    <textarea id="batchInput" placeholder="One IP or hostname per line, up to 100&#10;8.8.8.8&#10;1.1.1.1&#10;9.9.9.9"></textarea>
+    <div class="batch-actions">
+      <button class="btn btn-primary" id="batchBtn">Locate all →</button>
+      <button class="chip" id="batchSampleBtn">Load sample list</button>
+    </div>
+    <div class="status-line" id="batchStatusLine">
+      <span class="spinner" id="batchSpinner"></span>
+      <span id="batchStatusText">Paste up to 100 addresses, one per line.</span>
+    </div>
+
+    <div id="batchResults">
+      <div class="section-label">Results</div>
+      <div class="batch-table-wrap">
+        <table class="batch-table">
+          <thead>
+            <tr>
+              <th>Query</th><th>Country</th><th>City</th><th>ISP</th><th>ASN</th><th>Mobile</th><th>Proxy</th><th>Hosting</th>
+            </tr>
+          </thead>
+          <tbody id="batchTbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <span>Data via <a href="https://ip-api.com" target="_blank" rel="noopener">ip-api.com</a> — Monster</span>
+    <span id="timestamp"></span>
+  </footer>
+
+</div>
+
+<script>
+  /* ---------- Theme ---------- */
+  const themeToggle = document.getElementById('themeToggle');
+  const root = document.documentElement;
+  function setTheme(t){
+    root.setAttribute('data-theme', t);
+    themeToggle.textContent = t === 'dark' ? '☀️' : '🌙';
+  }
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  setTheme(prefersDark ? 'dark' : 'light');
+  themeToggle.addEventListener('click', ()=>{
+    setTheme(root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+  });
+
+  /* ---------- Mode tabs ---------- */
+  const tabSingle = document.getElementById('tabSingle');
+  const tabBatch = document.getElementById('tabBatch');
+  const singleMode = document.getElementById('singleMode');
+  const batchModeWrap = document.getElementById('batchModeWrap');
+  tabSingle.addEventListener('click', ()=>{
+    tabSingle.classList.add('active'); tabBatch.classList.remove('active');
+    singleMode.style.display = 'block'; batchModeWrap.style.display = 'none';
+  });
+  tabBatch.addEventListener('click', ()=>{
+    tabBatch.classList.add('active'); tabSingle.classList.remove('active');
+    batchModeWrap.style.display = 'block'; singleMode.style.display = 'none';
+  });
+
+  /* ---------- Shared ---------- */
+  const FIELDS = [
+    'status','message','continent','continentCode','country','countryCode',
+    'region','regionName','city','district','zip','lat','lon','timezone',
+    'offset','currency','isp','org','as','asname','reverse','mobile',
+    'proxy','hosting','query'
+  ].join(',');
+
+  function flagEmoji(countryCode){
+    if(!countryCode || countryCode.length !== 2) return '';
+    const codePoints = [...countryCode.toUpperCase()].map(c => 127397 + c.charCodeAt());
+    return String.fromCodePoint(...codePoints);
+  }
+
+  async function copyText(text, btn){
+    try{
+      await navigator.clipboard.writeText(text);
+      btn.classList.add('copied');
+      const orig = btn.textContent;
+      btn.textContent = '✓';
+      setTimeout(()=>{ btn.classList.remove('copied'); btn.textContent = orig; }, 1200);
+    }catch(e){ /* clipboard unavailable */ }
+  }
+
+  /* ---------- SINGLE LOOKUP ---------- */
+  const ipInput = document.getElementById('ipInput');
+  const lookupBtn = document.getElementById('lookupBtn');
+  const statusLine = document.getElementById('statusLine');
+  const statusText = document.getElementById('statusText');
+  const spinner = document.getElementById('spinner');
+  const results = document.getElementById('results');
+
+  document.querySelectorAll('.chip[data-ip]').forEach(chip=>{
+    chip.addEventListener('click', ()=>{ ipInput.value = chip.dataset.ip; runLookup(); });
+  });
+  ipInput.addEventListener('keydown', e=>{ if(e.key === 'Enter') runLookup(); });
+  lookupBtn.addEventListener('click', runLookup);
+
+  function setStatus(msg, isErr=false, loading=false){
+    statusText.textContent = msg;
+    statusLine.classList.toggle('err', isErr);
+    spinner.classList.toggle('show', loading);
+  }
+
+  function field(label, value, isEmpty=false){
+    const safeVal = value == null ? '—' : String(value);
+    const id = 'f_' + Math.random().toString(36).slice(2,9);
+    return `<div class="field">
+      <div><div class="k">${label}</div><div class="v ${isEmpty?'empty':''}" id="${id}">${safeVal}</div></div>
+      <button class="field-copy" data-copy-target="${id}" title="Copy">⧉</button>
+    </div>`;
+  }
+
+  function wireFieldCopy(container){
+    container.querySelectorAll('.field-copy').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const el = document.getElementById(btn.dataset.copyTarget);
+        if(el) copyText(el.textContent, btn);
+      });
+    });
+  }
+
+  document.getElementById('copyIpBtn').addEventListener('click', (e)=>{
+    copyText(document.getElementById('rIp').textContent, e.currentTarget);
+  });
+
+  async function runLookup(){
+    const raw = ipInput.value.trim();
+    const endpoint = raw
+      ? `http://ip-api.com/json/${encodeURIComponent(raw)}?fields=${FIELDS}`
+      : `http://ip-api.com/json/?fields=${FIELDS}`;
+
+    lookupBtn.disabled = true;
+    results.classList.remove('show');
+    setStatus('Resolving address…', false, true);
+
+    try{
+      const res = await fetch(endpoint);
+      if(!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if(data.status !== 'success') throw new Error(data.message || 'Lookup failed — check the address and try again.');
+      render(data);
+      setStatus(`Resolved ${data.query} successfully.`, false, false);
+    }catch(err){
+      const msg = (err.message === 'Failed to fetch')
+        ? 'Blocked by the browser — this page must be opened over http:// (a plain local file works) because ip-api.com\'s free tier has no SSL.'
+        : (err.message || 'Something went wrong reaching ip-api.com.');
+      setStatus(msg, true, false);
+    }finally{
+      lookupBtn.disabled = false;
+    }
+  }
+
+  function render(d){
+    document.getElementById('rIp').textContent = d.query || '—';
+    document.getElementById('rFlag').textContent = flagEmoji(d.countryCode);
+    document.getElementById('rCity').textContent = [d.city, d.regionName, d.country].filter(Boolean).join(', ') || 'Unknown location';
+    document.getElementById('rCoords').textContent = (d.lat!=null && d.lon!=null) ? `${d.lat.toFixed(4)}, ${d.lon.toFixed(4)}` : '';
+
+    const rdns = document.getElementById('rRdns');
+    if(d.reverse){ rdns.textContent = d.reverse; rdns.style.display = 'inline-block'; }
+    else{ rdns.style.display = 'none'; }
+
+    const badges = [];
+    badges.push(`<span class="badge ${d.mobile ? 'flag-bad':'flag-good'}">${d.mobile ? 'Mobile network' : 'Fixed network'}</span>`);
+    badges.push(`<span class="badge ${d.proxy ? 'flag-bad':'flag-good'}">${d.proxy ? 'Proxy / VPN detected' : 'No proxy detected'}</span>`);
+    badges.push(`<span class="badge ${d.hosting ? 'flag-bad':'flag-good'}">${d.hosting ? 'Hosting / datacenter' : 'Residential / ISP'}</span>`);
+    document.getElementById('rBadges').innerHTML = badges.join('');
+
+    const mapFrame = document.getElementById('mapFrame');
+    const mapLink = document.getElementById('mapLink');
+    if(d.lat != null && d.lon != null){
+      const d2 = 0.08;
+      const bbox = `${d.lon-d2},${d.lat-d2},${d.lon+d2},${d.lat+d2}`;
+      document.getElementById('mapIframe').src = `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${d.lat},${d.lon}`;
+      mapLink.href = `https://www.openstreetmap.org/?mlat=${d.lat}&mlon=${d.lon}#map=11/${d.lat}/${d.lon}`;
+      mapFrame.style.display = 'block';
+      mapLink.style.display = 'inline-block';
+    } else {
+      mapFrame.style.display = 'none';
+      mapLink.style.display = 'none';
+    }
+
+    const gridLocation = document.getElementById('gridLocation');
+    gridLocation.innerHTML = [
+      field('Continent', d.continent, !d.continent),
+      field('Continent code', d.continentCode, !d.continentCode),
+      field('Country', d.country, !d.country),
+      field('Country code', d.countryCode, !d.countryCode),
+      field('Region', d.regionName ? `${d.regionName} (${d.region})` : null, !d.regionName),
+      field('City', d.city, !d.city),
+      field('District', d.district, !d.district),
+      field('Postal / ZIP', d.zip, !d.zip),
+      field('Latitude', d.lat, d.lat==null),
+      field('Longitude', d.lon, d.lon==null),
+      field('Timezone', d.timezone, !d.timezone),
+      field('UTC offset', d.offset!=null ? `${d.offset>=0?'+':''}${d.offset/3600}h` : null, d.offset==null),
+      field('Currency', d.currency, !d.currency),
+    ].join('');
+    wireFieldCopy(gridLocation);
+
+    const gridNetwork = document.getElementById('gridNetwork');
+    gridNetwork.innerHTML = [
+      field('ISP', d.isp, !d.isp),
+      field('Organization', d.org, !d.org),
+      field('ASN', d.as, !d.as),
+      field('AS name', d.asname, !d.asname),
+      field('Reverse DNS', d.reverse, !d.reverse),
+      field('Queried address', d.query, !d.query),
+    ].join('');
+    wireFieldCopy(gridNetwork);
+
+    const gridFlags = document.getElementById('gridFlags');
+    gridFlags.innerHTML = [
+      field('Mobile connection', d.mobile ? 'Yes' : 'No'),
+      field('Proxy / VPN / Tor', d.proxy ? 'Yes' : 'No'),
+      field('Hosting / datacenter', d.hosting ? 'Yes' : 'No'),
+    ].join('');
+    wireFieldCopy(gridFlags);
+
+    document.getElementById('timestamp').textContent = 'Queried ' + new Date().toLocaleString();
+    results.classList.add('show');
+  }
+
+  /* ---------- BATCH LOOKUP ---------- */
+  const batchInput = document.getElementById('batchInput');
+  const batchBtn = document.getElementById('batchBtn');
+  const batchSampleBtn = document.getElementById('batchSampleBtn');
+  const batchStatusLine = document.getElementById('batchStatusLine');
+  const batchStatusText = document.getElementById('batchStatusText');
+  const batchSpinner = document.getElementById('batchSpinner');
+  const batchResults = document.getElementById('batchResults');
+  const batchTbody = document.getElementById('batchTbody');
+
+  batchSampleBtn.addEventListener('click', ()=>{
+    batchInput.value = '8.8.8.8\n1.1.1.1\n9.9.9.9\n208.67.222.222\n2606:4700:4700::1111';
+  });
+
+  function setBatchStatus(msg, isErr=false, loading=false){
+    batchStatusText.textContent = msg;
+    batchStatusLine.classList.toggle('err', isErr);
+    batchSpinner.classList.toggle('show', loading);
+  }
+
+  batchBtn.addEventListener('click', runBatch);
+
+  async function runBatch(){
+    const lines = batchInput.value.split('\n').map(l=>l.trim()).filter(Boolean).slice(0,100);
+    if(lines.length === 0){ setBatchStatus('Add at least one IP address or hostname.', true, false); return; }
+
+    batchBtn.disabled = true;
+    batchResults.classList.remove('show');
+    setBatchStatus(`Resolving ${lines.length} address${lines.length>1?'es':''}…`, false, true);
+
+    const payload = lines.map(q => ({ query: q, fields: FIELDS }));
+
+    try{
+      const res = await fetch('http://ip-api.com/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if(!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      renderBatch(data);
+      const failCount = data.filter(d=>d.status!=='success').length;
+      setBatchStatus(`Done — ${data.length - failCount} succeeded, ${failCount} failed.`, failCount>0, false);
+    }catch(err){
+      const msg = (err.message === 'Failed to fetch')
+        ? 'Blocked by the browser — open this file locally (file://) since ip-api.com\'s free tier has no SSL.'
+        : (err.message || 'Something went wrong reaching ip-api.com.');
+      setBatchStatus(msg, true, false);
+    }finally{
+      batchBtn.disabled = false;
+    }
+  }
+
+  function renderBatch(data){
+    batchTbody.innerHTML = data.map(d=>{
+      if(d.status !== 'success'){
+        return `<tr class="row-fail"><td>${d.query||'—'}</td><td colspan="7">${d.message||'lookup failed'}</td></tr>`;
+      }
+      return `<tr>
+        <td>${d.query}</td>
+        <td>${flagEmoji(d.countryCode)} ${d.country||'—'}</td>
+        <td>${d.city||'—'}</td>
+        <td>${d.isp||'—'}</td>
+        <td>${d.as||'—'}</td>
+        <td><span class="pill ${d.mobile?'bad':'good'}">${d.mobile?'yes':'no'}</span></td>
+        <td><span class="pill ${d.proxy?'bad':'good'}">${d.proxy?'yes':'no'}</span></td>
+        <td><span class="pill ${d.hosting?'bad':'good'}">${d.hosting?'yes':'no'}</span></td>
+      </tr>`;
+    }).join('');
+    batchResults.classList.add('show');
+  }
+
+  // Auto-run single lookup for the visitor's own IP on load
+  runLookup();
+</script>
+
+</body>
+</html>
